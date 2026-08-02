@@ -36,13 +36,13 @@ const HELP = `ego — Git 多身份管理 CLI
   status                            工作区状态 + 当前身份
 
 提交/推送
-  commit ["信息"] [--no-build] [--yes] [--force]   构建+hooks+暂存+提交
+  commit ["信息"] [--build] [--yes] [--force]   构建(可选)+hooks+暂存+提交
   push                              推送
-  publish ["信息"] [--no-build] [--yes] [--force]  构建+提交+推送
+  publish ["信息"] [--build] [--yes] [--force]  构建(可选)+提交+推送
   release [版本号]                   打 tag（默认读 package.json version）+ 推送
 
 通用参数
-  --no-build   跳过 .git-tool.json 里的 build
+  --build      执行 .git-tool.json 里的 build（默认不构建）
   --yes        非交互（自动生成提交信息、跳过确认）
   --force      忽略敏感文件/大文件守卫
 
@@ -87,7 +87,7 @@ async function main() {
   const cmd = positional[0];
   const rest = positional.slice(1);
   const yes = !!flags.yes;
-  const noBuild = !!flags['no-build'];
+  const build = !!flags.build;
   const force = !!flags.force;
 
   switch (cmd) {
@@ -113,11 +113,11 @@ async function main() {
     case 'verify':
       return cmdVerify();
     case 'commit':
-      return cmdCommit(rest.join(' ') || undefined, { noBuild, force, yes });
+      return cmdCommit(rest.join(' ') || undefined, { build, force, yes });
     case 'push':
       return cmdPush();
     case 'publish':
-      return cmdPublish(rest.join(' ') || undefined, { noBuild, force, yes });
+      return cmdPublish(rest.join(' ') || undefined, { build, force, yes });
     case 'release':
       return cmdRelease(rest[0] || flags.tag || flags.b, { force, yes });
     default:

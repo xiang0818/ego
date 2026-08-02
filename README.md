@@ -34,11 +34,13 @@ ego check [--prune]                   校验仓库实际身份与记录是否一
 ego add <user> --name 名字 --email 邮箱 --key 密钥   注册身份
 ego key-new <user> [--email 邮箱]     生成 SSH 密钥并注册
 ego init <user>   /   ego switch <user>   当前仓库绑定/切换身份
+ego start <user> [remote]                一键初始化新项目（git init + 绑定 + 初始提交 + 展示 log）；
+                                          已有提交的仓库只绑定不重复提交，已绑其它身份会拒绝并提示用 switch
 ego verify                            校验当前密钥绑定的 Git 账号（ssh -T）
 ego status                            工作区状态 + 当前身份
-ego commit ["信息"] [--no-build] [--yes] [--force]   构建+hooks+暂存+提交
+ego commit ["信息"] [--build] [--yes] [--force]   构建(可选)+hooks+暂存+提交
 ego push                              推送
-ego publish ["信息"] [...同上]          构建+提交+推送
+ego publish ["信息"] [--build] [--yes] [--force]  构建(可选)+提交+推送
 ego release [版本号]                   打 tag（默认读 package.json version）+ 推送
 ```
 
@@ -46,7 +48,7 @@ ego release [版本号]                   打 tag（默认读 package.json versi
 
 ```jsonc
 {
-  "build": "npm run build",      // commit/publish 前执行
+  "build": "npm run build",      // commit/publish 加 --build 时执行
   "beforeCommit": ["npm test"],  // 构建后的前置检查（可多个）
   "largeFileLimitMB": 50         // 大文件告警阈值
 }
@@ -56,7 +58,7 @@ ego release [版本号]                   打 tag（默认读 package.json versi
 
 ## 通用参数
 
-- `--no-build`：跳过 `.git-tool.json` 里的 build
+- `--build`：执行 `.git-tool.json` 里的 build（**默认不构建**，需要构建产物时显式加）
 - `--yes`：非交互模式（自动生成提交信息、跳过确认，供 CI）
 - `--force`：忽略敏感文件/大文件守卫
 
