@@ -54,6 +54,10 @@ ego publish "修复xx" --yes
   push                             推送
   publish ["信息"] [--build] [--yes] [--force]  构建(可选)+提交+推送
   release [版本号]                  打 tag（默认读 package.json version）+ 推送
+
+备份/恢复
+  export [--with-keys] [路径]      导出身份 + 仓库绑定清单（可选含 SSH 私钥）
+  import <备份文件> [--yes]        恢复身份/密钥，并列出仓库重绑步骤
 ```
 
 ## 项目配置 `.git-tool.json`（可选，放项目根）
@@ -86,6 +90,20 @@ ego publish "修复xx" --yes
 - 身份按仓库隔离：`init` 只写仓库级 `.git/config`（`user.name/email` + `core.sshCommand`）
 - 不同项目用不同账号：各自 `ego init <对应身份>` 即可
 - 每个身份对应一把独立 SSH 密钥（Git 平台一公钥只能绑一账号，天然一一对应）
+
+## 备份与迁移（换设备）
+
+```bash
+# 导出身份 + 仓库绑定清单（可选 --with-keys 连同 SSH 私钥一起打包）
+ego export                          # 默认输出到 ~/.git-tool/export-日期.json
+ego export --with-keys my-backup.json
+
+# 在新设备上恢复
+ego import my-backup.json           # 恢复身份/密钥，并打印每个仓库的克隆+绑定步骤
+ego import my-backup.json --yes     # 非交互，跳过冲突确认
+```
+
+> 私钥属最高敏感数据：`--with-keys` 导出的文件请加密保管，用后即删；公钥已绑平台账号，无需备份。
 
 ## 说明
 

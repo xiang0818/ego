@@ -19,7 +19,9 @@ import {
   cmdCommit,
   cmdPush,
   cmdPublish,
-  cmdRelease
+  cmdRelease,
+  cmdExport,
+  cmdImport
 } from '../lib/commands.js';
 
 const HELP = `ego — Git 多身份管理 CLI
@@ -47,6 +49,10 @@ const HELP = `ego — Git 多身份管理 CLI
   status                            工作区状态 + 当前身份
   scan [目录]                       批量扫描目录下各仓库的绑定归属
 
+备份/恢复
+  export [--with-keys] [路径]       导出身份 + 仓库绑定清单（可选含 SSH 私钥）
+  import <备份文件> [--yes]         恢复身份/密钥，并列出仓库重绑步骤
+
 提交/推送
   commit ["信息"] [--build] [--yes] [--force]   构建(可选)+hooks+暂存+提交
   push                              推送
@@ -68,6 +74,7 @@ const HELP = `ego — Git 多身份管理 CLI
   ego release
 `;
 
+const VALUE_FLAGS = new Set(['name', 'email', 'key', 'tag', 'b', 'remote']);
 function parseArgs(args) {
   const flags = {};
   const positional = [];
@@ -80,7 +87,7 @@ function parseArgs(args) {
       } else {
         const key = a.slice(2);
         const next = args[i + 1];
-        if (next !== undefined && !next.startsWith('--')) {
+        if (VALUE_FLAGS.has(key) && next !== undefined && !next.startsWith('--')) {
           flags[key] = next;
           i++;
         } else {
@@ -134,6 +141,10 @@ async function main() {
       return cmdWhoami();
     case 'scan':
       return cmdScan(rest[0]);
+    case 'export':
+      return cmdExport({ withKeys: !!flags['with-keys'], outFile: rest[0] });
+    case 'import':
+      return cmdImport(rest[0], { yes });
     case 'verify':
       return cmdVerify();
     case 'commit':

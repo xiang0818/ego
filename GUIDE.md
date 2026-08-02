@@ -184,7 +184,34 @@ ego publish "自动化构建" --build --yes --force
 
 ---
 
-## 10. 常见问题
+## 10. 备份与迁移（换设备）
+
+```bash
+# ① 旧设备：导出身份与仓库清单（可选连同 SSH 私钥）
+ego export --with-keys ego-backup.json
+#    身份定义 + 每个仓库的「远程地址 → 绑定用户」清单；
+#    --with-keys 会把 ~/.ssh/ 对应私钥以 base64 打包进文件
+
+# ② 将 ego-backup.json 安全转移到新设备（加密/私传，勿公开）
+
+# ③ 新设备：安装 ego 后恢复
+npm install -g .
+ego import ego-backup.json
+#    恢复身份注册表；含密钥则写回 ~/.ssh/；
+#    并打印仓库重绑清单
+
+# ④ 按清单逐个克隆并绑定
+git clone git@github.com:owner/repo.git
+cd repo && ego init <user>
+```
+
+**为什么仓库绑定关系是"清单"而不是绝对路径**：绑定记录里的路径是新旧设备不同的绝对路径，无法直接迁移；真正可移植的是「远程地址 + 用户」，克隆后各跑一次 `ego init` 即可。整目录拷贝时 `.git/config` 自带身份，绑定自动保留。
+
+> 备份文件若含私钥（`--with-keys`），务必加密保存、用后即删。
+
+---
+
+## 11. 常见问题
 
 **Q: push 报 `Permission denied (publickey)`**
 - 确认 `ego show <user>` 里 key 路径存在，且公钥已添加到对应平台账号
