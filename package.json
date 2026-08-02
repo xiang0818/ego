@@ -1,0 +1,10 @@
+{
+  "name": "ego",
+  "version": "1.0.0",
+  "description": "Git 多身份管理 CLI：身份注册表、一键绑定仓库、构建提交推送、打 tag、SSH 账号校验",
+  "type": "module",
+  "bin": {
+    "ego": "./bin/ego.mjs"
+  },
+  "license": "MIT"
+}
