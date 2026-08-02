@@ -5,11 +5,17 @@ import {
   cmdRepos,
   cmdCheck,
   cmdAdd,
+  cmdRemove,
+  cmdShow,
+  cmdSetGlobal,
+  cmdRemote,
   cmdKeyNew,
   cmdInit,
   cmdStart,
   cmdStatus,
+  cmdWhoami,
   cmdVerify,
+  cmdScan,
   cmdCommit,
   cmdPush,
   cmdPublish,
@@ -27,13 +33,19 @@ const HELP = `ego — Git 多身份管理 CLI
   check [--prune]                   校验仓库实际身份与记录是否一致；--prune 清理失效记录
   add <user> --name "名字" --email "邮箱" --key "密钥路径"   注册身份
   key-new <user> [--email 邮箱]     生成 SSH 密钥到 ~/.ssh/ 并注册
+  remove <user>                    删除身份（同时清理其仓库绑定）
+  show <user>                      查看身份详情（key/绑定仓库/是否全局）
+  set-global <user>                把某身份设为全局 git 身份（写 --global 配置）
 
 仓库绑定
   start <user> [remote]               一键初始化新项目：git init + 绑定身份 + 初始提交 + 展示 log
-  init <user>                       当前仓库绑定身份（user.name/email + core.sshCommand）
+  init <user>                       当前仓库绑定身份（可省略 user，按 remote 所有者自动推断）
   switch <user>                     同 init
+  remote [url]                      查看/绑定/修改 origin
   verify                            校验当前仓库密钥绑定的 Git 账号（ssh -T）
+  whoami                            快速查看当前仓库/全局身份
   status                            工作区状态 + 当前身份
+  scan [目录]                       批量扫描目录下各仓库的绑定归属
 
 提交/推送
   commit ["信息"] [--build] [--yes] [--force]   构建(可选)+hooks+暂存+提交
@@ -101,6 +113,14 @@ async function main() {
       return cmdCheck({ prune: !!flags.prune, yes });
     case 'add':
       return cmdAdd(rest[0], { name: flags.name, email: flags.email, key: flags.key });
+    case 'remove':
+      return cmdRemove(rest[0], { yes });
+    case 'show':
+      return cmdShow(rest[0]);
+    case 'set-global':
+      return cmdSetGlobal(rest[0]);
+    case 'remote':
+      return cmdRemote(rest[0]);
     case 'key-new':
       return cmdKeyNew(rest[0], { email: flags.email });
     case 'init':
@@ -110,6 +130,10 @@ async function main() {
       return cmdStart(rest[0], { remoteUrl: rest[1] || flags.remote });
     case 'status':
       return cmdStatus();
+    case 'whoami':
+      return cmdWhoami();
+    case 'scan':
+      return cmdScan(rest[0]);
     case 'verify':
       return cmdVerify();
     case 'commit':
