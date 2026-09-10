@@ -92,6 +92,41 @@ git remote -v        # origin  git@github.com:myowner/repo.git
 ego init             # 自动推断 myowner 对应的已注册身份
 ```
 
+### 4.1 目录还没有 Git 管理（没有 .git）
+
+`ego init` / `ego switch` 会**先检测当前目录是否在 Git 仓库内**；不在就先提示并引导初始化，
+而不是直接抛出 git 的原始报错：
+
+```bash
+cd ~/some/plain-dir
+ego init work
+# ⚠ 当前目录没有 Git 管理（未检测到 .git 仓库）。
+#   目录: /home/you/some/plain-dir
+#
+#   初始化项目的方式（任选其一）:
+#     1) 只建仓库:                git init
+#     2) 建仓库 + 绑定 + 初始提交:  ego start <user>
+#   完成后再运行 `ego init work` 绑定身份即可。
+#
+# 是否现在执行 git init 初始化当前目录? (Y/n):
+```
+
+三种处理方式：
+
+| 场景 | 做法 |
+|---|---|
+| 人在终端，想就地初始化 | 回车或输入 `y` → 先 `git init`，随后自动完成身份绑定 |
+| 不想在这里建仓库 | 输入 `n` → **中止且无副作用**，按提示先 `git init` 或改用 `ego start <user>` |
+| CI / agent（无 TTY） | 不带参数会**直接报错并给出步骤**（不会卡在提问上）；要自动初始化加 `--init`（或 `--yes`） |
+
+判定说明与坑：
+
+- 检测按 git 语义进行：**子目录只要属于上层某个仓库，就算已有 Git 管理**（绑定的是该仓库根目录的
+  `.git/config`），不会因为"当前目录里没有 `.git`"就误判为未纳入 Git 管理。
+- 未安装 git 时给出安装指引（<https://git-scm.com/downloads>）并中止，不抛底层 `ENOENT`。
+- 无论是自动还是手动 `git init`，都**只建仓库、不产生提交**；需要"建仓库 + 绑定 + 初始提交"
+  一条龙请用 `ego start <user>`。
+
 ---
 
 ## 5. 远程管理

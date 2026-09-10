@@ -26,6 +26,31 @@ ego publish "修复xx" --yes
 
 > 下文 `<user>` 指你在 `ego users` 里注册的身份名（如 `work`、`personal`），请替换成你自己的。
 
+### 目录还没纳入 Git 管理？
+
+`ego init` 会**先检测当前目录是否在 Git 仓库内**，不在就先提示并引导初始化：
+
+```bash
+cd 新目录
+ego init work
+# ⚠ 当前目录没有 Git 管理（未检测到 .git 仓库）。
+#   目录: /path/to/新目录
+#
+#   初始化项目的方式（任选其一）:
+#     1) 只建仓库:                git init
+#     2) 建仓库 + 绑定 + 初始提交:  ego start <user>
+#   完成后再运行 `ego init work` 绑定身份即可。
+#
+# 是否现在执行 git init 初始化当前目录? (Y/n):
+```
+
+- 回答 `Y`（或直接回车）→ 先 `git init`，再继续完成身份绑定；
+- 回答 `n` → **中止且不产生任何副作用**，并打印后续步骤；
+- 非交互环境（无 TTY，如 CI / agent 驱动）：不会提问（避免卡死），直接报错并给出步骤；
+  要自动初始化就显式加 `--init`（或 `--yes`）。
+- 未安装 git 时会提示安装 Git 并中止。
+
+
 ## 命令
 
 ```
@@ -39,7 +64,9 @@ ego publish "修复xx" --yes
   set-global <user>                把某身份设为全局 git 身份（写 --global 配置）
 
 仓库绑定
-  init <user> / switch <user>      当前仓库绑定/切换身份（init 可省略 user，按远程所有者推断）
+  init <user> [--init] [--yes]     当前仓库绑定身份（可省略 user，按远程所有者推断；
+                                   非 git 目录会先提示并引导初始化，--init/--yes 自动 git init）
+  switch <user> [--init] [--yes]   同 init
   remote [url]                     查看/绑定/修改 origin
   start <user> [remote]            一键初始化新项目（git init + 绑定 + 初始提交 + 展示 log）
   repos [user]                     列出仓库绑定（已删除的仓库会标注）
@@ -75,8 +102,9 @@ ego publish "修复xx" --yes
 ## 通用参数
 
 - `--build`：执行 `.git-tool.json` 里的 build（**默认不构建**，需要构建产物时显式加）
-- `--yes`：非交互模式（自动生成提交信息、跳过确认，供 CI）
+- `--yes`：非交互模式（自动生成提交信息、跳过确认，供 CI；`init`/`switch` 下等同自动 `git init`）
 - `--force`：忽略敏感文件/大文件守卫
+- `--init`：`init`/`switch` 专用，非 git 目录下无需确认直接执行 `git init`
 
 ## 安全守卫
 

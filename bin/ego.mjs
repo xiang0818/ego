@@ -41,8 +41,9 @@ const HELP = `ego — Git 多身份管理 CLI
 
 仓库绑定
   start <user> [remote]               一键初始化新项目：git init + 绑定身份 + 初始提交 + 展示 log
-  init <user>                       当前仓库绑定身份（可省略 user，按 remote 所有者自动推断）
-  switch <user>                     同 init
+  init <user> [--init] [--yes]      当前仓库绑定身份（可省略 user，按 remote 所有者自动推断；
+                                    非 git 目录会提示并引导初始化项目，--init/--yes 自动执行 git init）
+  switch <user> [--init] [--yes]    同 init
   remote [url]                      查看/绑定/修改 origin
   verify                            校验当前仓库密钥绑定的 Git 账号（ssh -T）
   whoami                            快速查看当前仓库/全局身份
@@ -61,8 +62,9 @@ const HELP = `ego — Git 多身份管理 CLI
 
 通用参数
   --build      执行 .git-tool.json 里的 build（默认不构建）
-  --yes        非交互（自动生成提交信息、跳过确认）
+  --yes        非交互（自动生成提交信息、跳过确认；init/switch 下自动执行 git init）
   --force      忽略敏感文件/大文件守卫
+  --init       init/switch 专用：非 git 目录下直接执行 git init（无需确认）
 
 项目配置 .git-tool.json（可选）:
   { "build": "npm run build", "beforeCommit": ["npm test"], "largeFileLimitMB": 50 }
@@ -132,7 +134,7 @@ async function main() {
       return cmdKeyNew(rest[0], { email: flags.email });
     case 'init':
     case 'switch':
-      return cmdInit(rest[0]);
+      return cmdInit(rest[0], { yes, init: !!flags.init });
     case 'start':
       return cmdStart(rest[0], { remoteUrl: rest[1] || flags.remote });
     case 'status':
