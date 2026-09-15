@@ -25,6 +25,8 @@ skills/
   `init` 会先提示「没有 Git 管理」并引导初始化（交互提问，或 `--init`/`--yes` 自动 `git init`）
 - 带守卫的提交推送打 tag（`ego commit` / `publish` / `release`），含敏感文件与
   大文件拦截、身份漂移中止、`--yes` 非交互约定
+- 按身份取数：`ego clone` / `pull` / `fetch` 用指定账号拉取（临时借用该身份密钥，
+  不改仓库绑定）；`ego ls-remote` 先探通路，零副作用
 - 密钥与账号校验（`ego verify` / `check` / `scan`）
 - 备份迁移（`export` / `import`）的安全注意事项
 

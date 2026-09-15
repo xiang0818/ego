@@ -24,6 +24,9 @@ description: Use the `ego` CLI — a Git 多身份管理工具 (identity registr
 - **`init`/`switch` 会先做 Git 环境检测**：当前目录不在 Git 仓库内 → 打印"没有 Git 管理"提示
   + 初始化指引，并引导初始化（交互提问 / `--init` / `--yes` 自动 `git init`）；
   **无 TTY 且未给 flag 时直接报错**（不提问、不挂住）。
+- **取数（`clone`/`pull`/`fetch`/`ls-remote`）是"借用身份"**：拉取时身份只决定 SSH 用哪把私钥，
+  与提交作者无关。ego 通过 `GIT_SSH_COMMAND` 临时借密钥，**不改仓库绑定、不写 `.git/config`**；
+  只有 **SSH 远端**才按身份切换（https 走凭据管理器，ego 无法介入并会明确提示）。
 - 输出为中文；出错时打印 `错误: <msg>` 并以非 0 退出。
 
 **前置检查**：先确认环境里装没装 `ego users`。
@@ -40,13 +43,15 @@ description: Use the `ego` CLI — a Git 多身份管理工具 (identity registr
 - 提交/推送/打 tag 前需要确认"这次以谁的身份提交"；
 - 仓库疑似绑错身份、push 报权限错误、换绑定；
 - 在**非 git 目录**跑 `ego init` 报「没有 Git 管理」，或 ego 询问"是否现在执行 git init"；
+- 要用**某个账号去拉取/克隆**私有仓库（跨账号取数），或先确认"这个身份能不能访问该远端"；
 - 多账号仓库审计、一致性校验、备份迁移。
 
 **别用 / 用普通 git 代替**：
 - 精确的部分暂存（只提交几个指定文件、挑 hunks）→ ego 提交是全量 `git add -A`，
   这种需求用原生 `git add <path>` + `git commit`；
 - 需要 GitHub/GitLab API 凭据、token 之类的操作（ego 不碰这些）；
-- 纯读操作（log/diff/fetch/rebase）→ 原生 git 即可，ego 负责的是"身份 + 守卫 + 记录"。
+- 纯读操作（log/diff/show/rebase）→ 原生 git 即可；但**要换身份取数**时用
+  `ego clone`/`pull`/`fetch`/`ls-remote`（原生 git 无法在不改配置的情况下换密钥）。
 
 ---
 
@@ -168,6 +173,40 @@ ego import <备份文件> [--yes]      # 恢复身份/密钥，并打印每仓�
 - 不带 `--with-keys` 不含私钥；带私钥的备份文件**务必提醒用户加密保管、用后即删**。
 - 绑定记录里存的是**绝对路径**，迁移后不可直接复用——真正可移植的是
   「remote 地址 + 身份」，import 后按清单 `git clone` + `ego init <身份>`。
+- 新设备上也可以直接用 `ego clone <身份> <地址>` 一步完成"克隆 + 绑定"（见 W6）。
+
+### W6 用某个身份取数（clone / pull / fetch / ls-remote）
+
+"用某身份拉数据"是最常见的跨账号需求。**关键认知**：拉取时身份只决定 SSH 用哪把私钥，
+**与提交作者无关**，所以 ego 走 `GIT_SSH_COMMAND` 临时借密钥 —— 不改仓库绑定、不写 `.git/config`。
+
+```bash
+# ① 克隆私有仓库（成功后自动把该身份绑定到新仓库，无需再 init）
+ego clone work git@github.com:company/private-repo.git
+ego clone work git@github.com:company/private-repo.git my-dir      # 指定目录
+ego clone work git@github.com:company/private-repo.git --no-bind   # 只要代码不绑定
+
+# ② 探通路（零副作用，克隆/推送前先验）：能不能访问？
+ego ls-remote work                                  # 用当前仓库 origin
+ego ls-remote work git@github.com:company/repo.git  # 指定地址
+# ✔ 身份 work 可访问该远端（远端引用 N 个） / ❌ + 错误原因 + 非 0 退出
+
+# ③ 用某身份拉更新
+ego pull work                 # fetch + 合并
+ego pull work --rebase        # 变基
+ego pull work --ff-only       # 只允许快进
+ego pull                      # 省略身份：沿用仓库绑定
+ego fetch work --all --prune  # 只更新远端引用并清理已删分支，不合并
+```
+
+注意事项与坑：
+- **不要为了"拉一次数据"去 `ego switch`**：那会换掉仓库的提交身份。`ego pull <身份>` /
+  `ego fetch <身份>` 只借用密钥，ego 会提示"本次只借用 X 拉取；提交作者与绑定均不变"。
+- **只有 SSH 远端**（`git@host:owner/repo.git`、`ssh://…`）才按身份切换；`https://` 由 Git
+  凭据管理器认证，ego 无法介入（会明确提示，不要对用户承诺"换身份就行"）；本地路径远端本不需要密钥。
+- 借用身份的**密钥文件不存在 / 身份未注册 / 未配密钥** → ego 在联网前直接报错，照报错修即可。
+- `clone` 的目标目录**非空会被拒绝**，不会覆盖既有文件；`--no-bind` 时不会写任何 git 配置。
+- 克隆后不需要再 `ego init`（绑定已自动完成）；若目录里已有别人的身份配置，用 `ego whoami` 核对。
 
 ---
 
@@ -177,6 +216,7 @@ ego import <备份文件> [--yes]      # 恢复身份/密钥，并打印每仓�
 |---|---|---|
 | 看身份/绑定 | `whoami` `status` `users` `keys` `show <u>` | |
 | 绑定/换绑/新项目 | `init [u]` `switch <u>` `start <u> [remote]` `remote [url]` | init 省略 u 需唯一推断；非 git 目录加 `--init`/`--yes` 自动 `git init` |
+| 按身份取数 | `clone <u> <url> [dir]` `pull [u]` `fetch [u]` `ls-remote <u> [url]` | clone 加 `--no-bind` 可不绑定；pull 加 `--rebase`/`--ff-only`；fetch 加 `--all`/`--prune` |
 | 提交 | `commit ["msg"]` | `--build` `--yes` `--force` |
 | 提交+推送 | `publish ["msg"]` | 同上 |
 | 推送 / 打 tag | `push` / `release [版本]` | `release` 默认读 package.json |
@@ -202,6 +242,8 @@ ego import <备份文件> [--yes]      # 恢复身份/密钥，并打印每仓�
 - 动手前先 `ego whoami` 确认身份上下文；拿不准就问用户。
 - 在非 git 目录要绑定时：先 `git init`，或直接用 `ego init <身份> --init`；无 TTY 下不带 flag
   会被明确拒绝（这是设计如此，不是故障）。
+- 要**用另一个账号取数**（克隆/拉取别人的私有仓库）时，用 `ego clone <身份> <地址>`、
+  `ego pull <身份>`、`ego fetch <身份>`；只想确认权限就先 `ego ls-remote <身份> <地址>`。
 - 无 TTY/无人确认的自动化里一律带 `--yes`（并给明确提交信息），防交互卡死。
 - 展示给用户的公钥原样输出，别截断别改格式。
 - 修复身份问题优先用 ego 自己的命令（`switch`/`init`），别手改 `.git/config`。
@@ -211,6 +253,9 @@ ego import <备份文件> [--yes]      # 恢复身份/密钥，并打印每仓�
 - ❌ 手改 `~/.git-tool/users.json`——一律用 `add`/`key-new`/`remove`。
 - ❌ 用裸 `ssh-keygen` 造身份密钥（不会注册进 ego，身份是散的）。
 - ❌ 未装 git 或不在 Git 仓库时，绕过 ego 的检测提示硬凑一个"成功"结果（例如自己拼 `git config` 命令）。
+- ❌ **为了"拉一次数据"就 `ego switch`** 换掉仓库绑定（该用 `ego clone/pull/fetch <身份>` 临时借用）。
+- ❌ 手改 `core.sshCommand` 或设置全局 `GIT_SSH_COMMAND` 来"借用身份"——用 ego 的命令，别污染配置。
+- ❌ 对 `https://` 远端承诺"换身份就能访问"（密钥在此不生效，走凭据管理器）。
 - ❌ 擅自 `--force` 绕过敏感文件/大文件守卫——只在用户明确要求时用。
 - ❌ 在已绑定其它身份的仓库上 `start`/重复 `init`——按提示用 `switch`。
 - ❌ 身份不确定时猜一个提交；宁可不提交并问用户。
@@ -221,6 +266,8 @@ ego import <备份文件> [--yes]      # 恢复身份/密钥，并打印每仓�
 ## 5. 与原生 git 的边界
 
 - 原生 git 的读操作、分支、rebase、精细暂存照常直接做；
+- **取数**（clone/pull/fetch）需要换身份时走 `ego clone/pull/fetch/ls-remote`；
+  不需要换身份（单账号仓库）时原生 `git clone`/`git pull` 也完全可以。
 - 提交入口二选一：简单全量提交通道用 `ego commit/publish`（有守卫与记录）；
   需要精确控制暂存内容时用原生 git（此时仍应先用 `ego whoami` 确认仓库身份正确）。
 - 想让某次提交换作者而**不换绑定**？先和用户确认意图——ego 的模型是

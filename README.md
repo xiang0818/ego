@@ -75,6 +75,12 @@ ego init work
   whoami                           快速查看当前仓库/全局身份
   scan [目录]                      批量扫描目录下各仓库的绑定归属
 
+取数（按身份拉取，SSH 远端才靠密钥切身份）
+  clone <user> <地址> [目录] [--no-bind]   用该身份克隆（密钥仅本次认证用），成功后自动绑定身份
+  pull [user] [--rebase] [--ff-only]      用该身份 fetch + 合并（省略 user 则用仓库绑定）
+  fetch [user] [--all] [--prune]          只更新远端引用，不合并
+  ls-remote <user> [地址]                 验证该身份能否访问远端（零副作用）
+
 提交/推送
   status                           工作区状态 + 当前身份
   commit ["信息"] [--build] [--yes] [--force]   构建(可选)+hooks+暂存+提交
@@ -118,6 +124,34 @@ ego init work
 - 身份按仓库隔离：`init` 只写仓库级 `.git/config`（`user.name/email` + `core.sshCommand`）
 - 不同项目用不同账号：各自 `ego init <对应身份>` 即可
 - 每个身份对应一把独立 SSH 密钥（Git 平台一公钥只能绑一账号，天然一一对应）
+
+## 按身份拉取数据（clone / pull / fetch / ls-remote）
+
+拉取数据时，"身份"唯一的作用是 **SSH 认证用哪把私钥**（与提交作者无关）。所以这几个命令
+通过 `GIT_SSH_COMMAND` 临时借用某个身份的密钥，**不改仓库绑定、不写 `.git/config`、用完即失效**：
+
+```bash
+# 用 work 身份克隆私有仓库（成功后自动把 work 绑定到新仓库）
+ego clone work git@github.com:company/private-repo.git
+ego clone work git@github.com:company/private-repo.git my-dir     # 指定目录
+ego clone work git@github.com:company/private-repo.git --no-bind  # 只要代码，不绑定身份
+
+# 先探通路（零副作用）：克隆/推送前确认"这个身份到底能不能访问"
+ego ls-remote work                                  # 用当前仓库 origin
+ego ls-remote work git@github.com:company/repo.git  # 指定地址
+
+# 用某个身份拉取更新
+ego pull work                 # fetch + 合并
+ego pull work --rebase        # 变基式拉取
+ego pull                      # 省略身份：沿用仓库绑定
+ego fetch work --all --prune  # 只更新远端引用（含清理已删除分支），不合并
+```
+
+- **借用谁**：任何已注册身份（`ego users`）。借用的身份与仓库绑定不同时，ego 会明确提示
+  "只借用 X 拉取，提交作者与绑定均不变" —— 正是"用另一个账号拉数据，但提交仍算自己"的场景。
+- **边界**：只有 **SSH 远端**（`git@host:owner/repo.git`、`ssh://…`）才靠密钥切换身份；
+  `https://` 由 Git 凭据管理器认证，ego 无法介入（会明确提示）；本地路径远端不需要密钥。
+- **密钥校验**：借用身份时若密钥文件不存在会提前报错，不会等 git 抛晦涩的认证失败。
 
 ## 备份与迁移（换设备）
 

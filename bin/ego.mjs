@@ -16,6 +16,10 @@ import {
   cmdWhoami,
   cmdVerify,
   cmdScan,
+  cmdClone,
+  cmdPull,
+  cmdFetch,
+  cmdLsRemote,
   cmdCommit,
   cmdPush,
   cmdPublish,
@@ -50,6 +54,12 @@ const HELP = `ego — Git 多身份管理 CLI
   status                            工作区状态 + 当前身份
   scan [目录]                       批量扫描目录下各仓库的绑定归属
 
+取数（按身份拉取；只有 SSH 远端才靠密钥切换身份）
+  clone <user> <地址> [目录] [--no-bind]   用该身份克隆（密钥仅本次认证用），成功后自动绑定身份
+  pull [user] [--rebase] [--ff-only]      用该身份 fetch + 合并（省略 user 则用仓库绑定）
+  fetch [user] [--all] [--prune]          只更新远端引用，不合并
+  ls-remote <user> [地址]                 验证该身份能否访问远端（零副作用）
+
 备份/恢复
   export [--with-keys] [路径]       导出身份 + 仓库绑定清单（可选含 SSH 私钥）
   import <备份文件> [--yes]         恢复身份/密钥，并列出仓库重绑步骤
@@ -72,6 +82,9 @@ const HELP = `ego — Git 多身份管理 CLI
 示例:
   ego key-new coresz --email fixcores@proton.me
   ego init coresz
+  ego clone coresz git@github.com:coresz/private-repo.git
+  ego ls-remote coresz
+  ego fetch work --prune
   ego publish "修复xx" --yes
   ego release
 `;
@@ -143,6 +156,14 @@ async function main() {
       return cmdWhoami();
     case 'scan':
       return cmdScan(rest[0]);
+    case 'clone':
+      return cmdClone(rest[0], rest[1], rest[2], { bind: !flags['no-bind'] });
+    case 'pull':
+      return cmdPull(rest[0], { rebase: !!flags.rebase, ffOnly: !!flags['ff-only'] });
+    case 'fetch':
+      return cmdFetch(rest[0], { all: !!flags.all, prune: !!flags.prune });
+    case 'ls-remote':
+      return cmdLsRemote(rest[0], rest[1]);
     case 'export':
       return cmdExport({ withKeys: !!flags['with-keys'], outFile: rest[0] });
     case 'import':

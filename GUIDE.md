@@ -246,7 +246,78 @@ cd repo && ego init <user>
 
 ---
 
-## 11. 常见问题
+## 11. 按某个身份拉取数据（clone / pull / fetch / ls-remote）
+
+拉取数据时，"身份"唯一的作用是 **SSH 认证用哪把私钥**（和提交作者无关）。ego 通过
+`GIT_SSH_COMMAND` 临时借用身份密钥：**不改仓库绑定、不写 `.git/config`、用完即失效**。
+
+### 11.1 用某个身份克隆私有仓库
+
+```bash
+# 用 work 身份克隆（SSH 地址），成功后自动把 work 绑定到新仓库
+ego clone work git@github.com:company/private-repo.git
+# ▶ 使用身份 work（My Work <work@example.com>）克隆
+#   密钥: ~/.ssh/id_ed25519_work（仅本次认证用）
+# 已绑定身份 work 到新仓库: /path/to/private-repo
+
+ego clone work git@github.com:company/private-repo.git my-dir      # 指定目录
+ego clone work git@github.com:company/private-repo.git --no-bind   # 只要代码，不绑定身份
+```
+
+- 克隆后**自动完成绑定**（`user.name/email` + `core.sshCommand` + 记入 `ego repos`），
+  之后 `cd` 进去直接 `ego publish` 即可；不需要再跑 `ego init`。
+- 目录已存在且非空会**拒绝克隆**，不会覆盖你的文件。
+- 远端 owner 疑似另一个已注册身份时会打印 ⚠ 提醒（和 `init` 一致）。
+
+### 11.2 先探通路（零副作用）
+
+克隆或推送前不确定"这个身份能不能访问"，先探测：
+
+```bash
+ego ls-remote work                                  # 用当前仓库 origin
+ego ls-remote work git@github.com:company/repo.git  # 指定地址
+# ✔ 身份 work 可访问该远端（远端引用 42 个）
+# 失败则 ❌ + 最后几行 git/ssh 的错误原因，并以非 0 退出
+```
+
+它只读远端引用，不落盘、不改本地任何状态，比 `git clone` 试错便宜得多。
+
+### 11.3 用某个身份拉取更新
+
+```bash
+ego pull work                 # fetch + 合并
+ego pull work --rebase        # 变基式拉取
+ego pull work --ff-only       # 只允许快进
+ego pull                      # 省略身份：沿用仓库绑定/现有配置
+ego fetch work --all --prune  # 只更新远端引用并清理已删除分支，不合并
+```
+
+借用身份与仓库绑定不同时，会明确提示：
+
+```bash
+cd ~/work/project-a          # 该仓库绑定 work
+ego fetch personal --prune
+# ▶ 使用身份 personal（Me <me@example.com>）
+#   密钥: ~/.ssh/id_ed25519_personal（仅本次生效，不写入 .git/config）
+#   注意: 本仓库绑定的是 work，本次只借用 personal 拉取；提交作者与绑定均不变。
+```
+
+这正是"**用另一个账号拉数据，但提交仍算自己**"的场景 —— 不需要 `ego switch`（那会换掉提交身份）。
+
+### 11.4 边界与限制
+
+| 远端类型 | 能否按身份切换 |
+|---|---|
+| `git@github.com:owner/repo.git`、`ssh://…` | ✅ 用该身份的私钥认证 |
+| `https://…` | ❌ 由 Git 凭据管理器认证，ego 无法介入（会打印提示，不做假动作） |
+| 本地路径 / `file://` | ➖ 本来就不需要密钥（会打印提示） |
+
+- 借用身份时若**密钥文件不存在**，会在联网前直接报错（`ego show <身份>` 核对）。
+- 身份未注册 / 未配密钥 → 同样直接报错，不会走到 git 的晦涩认证失败。
+
+---
+
+## 12. 常见问题
 
 **Q: push 报 `Permission denied (publickey)`**
 - 确认 `ego show <user>` 里 key 路径存在，且公钥已添加到对应平台账号
@@ -254,6 +325,9 @@ cd repo && ego init <user>
 
 **Q: 仓库绑错了用户**
 - 用 `ego switch <正确身份>` 换绑，不要用 `ego start`
+
+**Q: 想用另一个账号拉一个私有仓库（但不换自己的提交身份）**
+- `ego clone <那个身份> <地址>`，或先 `ego ls-remote <那个身份> <地址>` 探通路；见第 11 节
 
 **Q: 换电脑/重装后，注册表还在吗**
 - 身份注册表在 `~/.git-tool/users.json`，密钥在 `~/.ssh/`，记得一起备份迁移
