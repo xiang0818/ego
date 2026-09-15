@@ -264,8 +264,9 @@ ego clone work git@github.com:company/private-repo.git my-dir      # 指定目�
 ego clone work git@github.com:company/private-repo.git --no-bind   # 只要代码，不绑定身份
 ```
 
-- 克隆后**自动完成绑定**（`user.name/email` + `core.sshCommand` + 记入 `ego repos`），
-  之后 `cd` 进去直接 `ego publish` 即可；不需要再跑 `ego init`。
+- 克隆后**自动完成绑定**（`user.name/email` + 记入 `ego repos`），之后 `cd` 进去直接 `ego publish`
+  即可，不需要再跑 `ego init`；**SSH 远端**才会同时写入 `core.sshCommand`，
+  https/本地远端会跳过该写入并打印提示（密钥在那些远端不生效）。
 - 目录已存在且非空会**拒绝克隆**，不会覆盖你的文件。
 - 远端 owner 疑似另一个已注册身份时会打印 ⚠ 提醒（和 `init` 一致）。
 
@@ -312,8 +313,13 @@ ego fetch personal --prune
 | `https://…` | ❌ 由 Git 凭据管理器认证，ego 无法介入（会打印提示，不做假动作） |
 | 本地路径 / `file://` | ➖ 本来就不需要密钥（会打印提示） |
 
-- 借用身份时若**密钥文件不存在**，会在联网前直接报错（`ego show <身份>` 核对）。
-- 身份未注册 / 未配密钥 → 同样直接报错，不会走到 git 的晦涩认证失败。
+- 身份未注册 → 直接报错，不会走到 git 的晦涩认证失败。
+- **SSH 远端**才会要求身份已配密钥且密钥文件存在（不存在时在联网前报错）；
+  https/本地远端用不上密钥，因此不要求身份配密钥。
+- `ego pull` / `ego fetch` 的第一个位置参数是**身份名**，不是远端名/分支名：
+  写 `ego pull origin main` 会得到一条自解释的报错（而不是被当成身份名默默失败）；要拉当前
+  配置的远端直接 `ego pull`（不带参数）即可。
+- 不认识的 `--xxx` 参数不会被静默忽略，会当成位置参数并给出明确报错（拼错 `--ff-only` 时能立刻发现）。
 
 ---
 

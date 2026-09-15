@@ -1,8 +1,11 @@
 {
   "name": "ego",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Git 多身份管理 CLI：身份注册表、一键绑定仓库、按身份取数（clone/pull/fetch）、构建提交推送、打 tag、SSH 账号校验",
   "type": "module",
+  "engines": {
+    "node": ">=14"
+  },
   "bin": {
     "ego": "./bin/ego.mjs"
   },

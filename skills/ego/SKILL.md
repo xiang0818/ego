@@ -84,10 +84,14 @@ ego release 1.2.3
 **`ego commit`/`publish` 实际做了什么**（按序，勿跳过/假设）：
 1. **身份漂移检查**：比对仓库记录的身份 vs `.git/config` 实际 user.name/email/密钥。
    不一致 → **中止**并提示 `ego switch <正确身份>`（除非显式 `--force`）。
+   注意：https/本地远端不走 SSH 认证，这类仓库只比对 `user.name/email`（不校验密钥），
+   所以"没有 core.sshCommand"不等于漂移。
 2. `build`（仅当加了 `--build`）→ `beforeCommit` 钩子（`.git-tool.json` 里配了**就会跑**）。
 3. `git add -A`（**全量暂存**，含删除与生成物）。
 4. 安全守卫：暂存了敏感文件（`.env*`、`*.pem`、`id_*`、`*.key`）或超过
    `largeFileLimitMB`（默认 50）的大文件 → 警告/中止，需确认或 `--force`。
+   守卫对**中文等非 ASCII 路径同样生效**，且阈值/路径以**仓库根**为基准——在子目录里提交
+   也会正常拦截（不要用"在子目录跑就绕过了"来解释异常行为）。
 5. 展示 `git diff --cached --stat` 确认（`--yes` 跳过）。
 6. `git commit -m <信息>` → 打印最近 3 条 log。
    - 给了信息就用；交互模式没给会提示输入；`--yes` 没给会生成
@@ -205,8 +209,14 @@ ego fetch work --all --prune  # 只更新远端引用并清理已删分支，不
 - **只有 SSH 远端**（`git@host:owner/repo.git`、`ssh://…`）才按身份切换；`https://` 由 Git
   凭据管理器认证，ego 无法介入（会明确提示，不要对用户承诺"换身份就行"）；本地路径远端本不需要密钥。
 - 借用身份的**密钥文件不存在 / 身份未注册 / 未配密钥** → ego 在联网前直接报错，照报错修即可。
+  注意：**只有 SSH 远端**才要求密钥；https/本地远端用不上密钥，这类远端身份没有密钥也能取数。
+- **`pull`/`fetch` 的第一个位置参数是身份名**，不是远端名/分支名：`ego pull origin main` 会明确报错
+  （不会静默当成 git pull）；要拉当前配置的远端就 `ego pull`（不带参数）。
+- **不认识的 `--xxx` 不会再被静默忽略**：会被当作位置参数并报错，所以拼错 flag 会立刻暴露，
+  不要用"命令返回 0"来判断参数真的生效了。
 - `clone` 的目标目录**非空会被拒绝**，不会覆盖既有文件；`--no-bind` 时不会写任何 git 配置。
 - 克隆后不需要再 `ego init`（绑定已自动完成）；若目录里已有别人的身份配置，用 `ego whoami` 核对。
+- 非 SSH 远端（https/本地路径）克隆时**只写 `user.name/email`，不写 `core.sshCommand`**，属正常行为。
 
 ---
 
@@ -229,10 +239,13 @@ ego fetch work --all --prune  # 只更新远端引用并清理已删分支，不
 ```jsonc
 {
   "build": "npm run build",      // 仅加 --build 时执行
-  "beforeCommit": ["npm test"],  // commit/publish 时总会执行
+  "beforeCommit": ["npm test"],  // commit/publish 时总会执行（必须是数组，写成字符串会被忽略并告警）
   "largeFileLimitMB": 50         // 大文件告警阈值
 }
 ```
+
+> `.git-tool.json` 及其中的命令取自**仓库内容**：克隆不可信仓库后执行 `ego commit` 会运行它自带的
+> `beforeCommit` 命令。作为 agent，遇到来路不明的仓库不要自动 `ego commit`/`publish`。
 
 ---
 

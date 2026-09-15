@@ -90,27 +90,44 @@ const HELP = `ego — Git 多身份管理 CLI
 `;
 
 const VALUE_FLAGS = new Set(['name', 'email', 'key', 'tag', 'b', 'remote']);
+const BOOL_FLAGS = new Set([
+  'build',
+  'yes',
+  'force',
+  'init',
+  'prune',
+  'no-bind',
+  'rebase',
+  'ff-only',
+  'all',
+  'with-keys',
+  'help'
+]);
+const isKnownFlag = (k) => VALUE_FLAGS.has(k) || BOOL_FLAGS.has(k);
+
 function parseArgs(args) {
   const flags = {};
   const positional = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a.startsWith('--')) {
-      const eq = a.indexOf('=');
-      if (eq >= 0) {
-        flags[a.slice(2, eq)] = a.slice(eq + 1);
-      } else {
-        const key = a.slice(2);
-        const next = args[i + 1];
-        if (VALUE_FLAGS.has(key) && next !== undefined && !next.startsWith('--')) {
-          flags[key] = next;
-          i++;
-        } else {
-          flags[key] = true;
-        }
-      }
-    } else {
+    // 不认识的 --xxx 不当 flag 吞掉：交给位置参数，命令侧会给出明确报错；
+    // 同时保证 `ego commit "--force 说明"` 这类以 -- 开头的提交信息不被误解析
+    if (!a.startsWith('--') || !isKnownFlag(a.indexOf('=') >= 0 ? a.slice(2, a.indexOf('=')) : a.slice(2))) {
       positional.push(a);
+      continue;
+    }
+    const eq = a.indexOf('=');
+    if (eq >= 0) {
+      flags[a.slice(2, eq)] = a.slice(eq + 1);
+      continue;
+    }
+    const key = a.slice(2);
+    const next = args[i + 1];
+    if (VALUE_FLAGS.has(key) && next !== undefined && !next.startsWith('--')) {
+      flags[key] = next;
+      i++;
+    } else {
+      flags[key] = true;
     }
   }
   return { flags, positional };
