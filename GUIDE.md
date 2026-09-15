@@ -323,7 +323,50 @@ ego fetch personal --prune
 
 ---
 
-## 12. 常见问题
+## 12. 改了身份信息后同步到各仓库（sync）
+
+仓库里的 `user.name/email/core.sshCommand` 是 **`ego init`/`ego clone` 绑定那一刻的快照**。
+`ego add <身份> --email 新邮箱` 只改注册表，**不会**回头更新任何仓库——不跑 `sync` 的话，
+那些仓库会继续用旧邮箱提交，而且**没有任何提示**。
+
+```bash
+# ① 改注册表（name/email/key 都可以改，未给的字段保持不变）
+ego add coresz --email new@example.com
+
+# ② 先看影响面（不落盘）
+ego sync coresz --dry-run
+# ▶ 同步身份: coresz（绑定仓库 7 个）
+#   ⚠ D:/source/javuser
+#        coresZ <old@example.com>  →  coresZ <new@example.com>
+#        core.sshCommand → ssh -i "…/id_ed25519_coresz" -o IdentitiesOnly=yes …
+#   ⏭ D:/source/a（不是 git 仓库）
+# （--dry-run：以上为将要修改的内容，未做任何改动）
+
+# ③ 落盘
+ego sync coresz
+#   ✅ D:/source/javuser  →  coresZ <new@example.com>
+# 同步完成：更新 7 个仓库。
+
+# ④ 复核
+ego check        # 应显示 ✅ 一致 N · ⚠️ 0 · ❌ 0
+```
+
+要点：
+
+- **不带身份**（`ego sync`）= 同步全部身份到各自绑定的仓库。
+- **密钥轮换**同理：`ego key-new <身份>` 重新生成密钥后，各仓库的 `core.sshCommand` 仍指向旧密钥文件，
+  必须 `ego sync <身份>` 才会更新（否则认证会失败）。
+- `sync` 只写 `user.name/email`；`core.sshCommand` 仅在**该仓库按 SSH 认证**时写
+  （https/本地路径远端不写，与 `ego check` 的判定保持一致，不会因此出现假 ❌）。
+- 该身份若是**全局身份**（`ego set-global`），`sync` 会**同时刷新 `--global` 配置**。
+- 跳过并列出：目录不存在、不是 git 仓库的绑定记录（`ego check` 里 ❌ 的那种脏记录）。
+- 无 TTY（agent/CI）会直接执行不提问；交互模式会先展示计划再确认；`--yes` 跳过确认。
+- **只影响以后的提交**：历史提交的作者不会变。要改历史必须 `git filter-repo` 重写 + 强推，
+  会破坏他人的克隆，除非明确需要否则别做。
+
+---
+
+## 13. 常见问题
 
 **Q: push 报 `Permission denied (publickey)`**
 - 确认 `ego show <user>` 里 key 路径存在，且公钥已添加到对应平台账号
@@ -331,6 +374,10 @@ ego fetch personal --prune
 
 **Q: 仓库绑错了用户**
 - 用 `ego switch <正确身份>` 换绑，不要用 `ego start`
+
+**Q: 改了身份邮箱，为什么仓库里还是旧的？**
+- 因为仓库配置是绑定时的快照：改完注册表要跑 `ego sync <身份>`（见第 12 节），
+  否则新提交仍用旧邮箱；改完用 `ego check` 复核
 
 **Q: 想用另一个账号拉一个私有仓库（但不换自己的提交身份）**
 - `ego clone <那个身份> <地址>`，或先 `ego ls-remote <那个身份> <地址>` 探通路；见第 11 节

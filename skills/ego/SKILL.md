@@ -141,9 +141,20 @@ ego keys                 # ~/.ssh 密钥清单，标出已绑定/未绑定
 ego show <身份>          # 详情：name/email/key、key 是否存在、绑定仓库
 ego key-new <身份> [--email 邮箱]
 ego add <身份> --name "名字" --email "邮箱" --key "~/.ssh/xxx"
+ego sync [身份] [--dry-run] [--yes]   # 把身份的 name/email/key 变更同步到其全部绑定仓库
 ego set-global <身份>    # 设为全局 git 身份（写 --global 配置）
 ego remove <身份> [--yes]  # 删除身份并解除其全部仓库绑定
 ```
+
+- **改完身份信息必须 `ego sync`**（最常见的静默坑）：`ego add <身份> --email X` **只改注册表**，
+  不会更新任何仓库的 `.git/config`（那里是绑定那一刻的快照）。不同步的话，各仓库会继续用旧邮箱
+  提交，而且**毫无提示**。密钥轮换（`key-new` 重生成）之后同样要 `sync`，否则各仓库的
+  `core.sshCommand` 仍指向旧密钥、认证失败。
+  - `ego sync`（不带身份）= 同步全部身份到各自绑定的仓库；`--dry-run` 先看影响面不落盘；
+    目标是全局身份时**同时刷新 `--global` 配置**；完事用 `ego check` 复核应全绿。
+  - 跳过项（目录不存在／不是 git 仓库的绑定）会列出——就是 `ego check` 报 ❌ 的那种脏记录。
+  - `sync` 只影响以后的提交，历史提交作者不变（改历史要重写 + 强推，别擅自做）。
+- `add` 会**保留**未指定的字段（含 `isGlobal` 全局标记），因此重跑 `ego add` 不会弄丢 ★全局。
 
 - `key-new`：生成 `~/.ssh/id_ed25519_<身份>`（ed25519、无口令），注册并把**公钥打印出来**。
   公钥必须由**用户**贴到平台（GitHub → Settings → SSH and GPG keys）。agent 无法代加，
@@ -226,6 +237,7 @@ ego fetch work --all --prune  # 只更新远端引用并清理已删分支，不
 |---|---|---|
 | 看身份/绑定 | `whoami` `status` `users` `keys` `show <u>` | |
 | 绑定/换绑/新项目 | `init [u]` `switch <u>` `start <u> [remote]` `remote [url]` | init 省略 u 需唯一推断；非 git 目录加 `--init`/`--yes` 自动 `git init` |
+| 身份变更同步 | `sync [u] [--dry-run] [--yes]` | 改过 `--email` 或轮换密钥后**必跑**；全局身份会同时刷新 `--global` |
 | 按身份取数 | `clone <u> <url> [dir]` `pull [u]` `fetch [u]` `ls-remote <u> [url]` | clone 加 `--no-bind` 可不绑定；pull 加 `--rebase`/`--ff-only`；fetch 加 `--all`/`--prune` |
 | 提交 | `commit ["msg"]` | `--build` `--yes` `--force` |
 | 提交+推送 | `publish ["msg"]` | 同上 |
@@ -257,13 +269,17 @@ ego fetch work --all --prune  # 只更新远端引用并清理已删分支，不
   会被明确拒绝（这是设计如此，不是故障）。
 - 要**用另一个账号取数**（克隆/拉取别人的私有仓库）时，用 `ego clone <身份> <地址>`、
   `ego pull <身份>`、`ego fetch <身份>`；只想确认权限就先 `ego ls-remote <身份> <地址>`。
+- 用户改了身份信息（邮箱/名字）或轮换了密钥后，**主动跑 `ego sync <身份>`**（必要时先 `--dry-run`），
+  别只是改注册表就完事。
 - 无 TTY/无人确认的自动化里一律带 `--yes`（并给明确提交信息），防交互卡死。
 - 展示给用户的公钥原样输出，别截断别改格式。
 - 修复身份问题优先用 ego 自己的命令（`switch`/`init`），别手改 `.git/config`。
 - `verify` 用 ssh -T 校验账号后再让用户 push。
 
 **Don't**
-- ❌ 手改 `~/.git-tool/users.json`——一律用 `add`/`key-new`/`remove`。
+- ❌ 手改 `~/.git-tool/users.json`——一律用 `add`/`key-new`/`remove`/`sync`。
+- ❌ 改完 `ego add --email` 就以为仓库会跟着变（不会，要 `ego sync`）；也别用"逐个仓库 `ego init`"代替
+  `sync`（7 个仓库就是 7 条易漏的命令）。
 - ❌ 用裸 `ssh-keygen` 造身份密钥（不会注册进 ego，身份是散的）。
 - ❌ 未装 git 或不在 Git 仓库时，绕过 ego 的检测提示硬凑一个"成功"结果（例如自己拼 `git config` 命令）。
 - ❌ **为了"拉一次数据"就 `ego switch`** 换掉仓库绑定（该用 `ego clone/pull/fetch <身份>` 临时借用）。

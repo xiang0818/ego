@@ -16,6 +16,7 @@ import {
   cmdWhoami,
   cmdVerify,
   cmdScan,
+  cmdSync,
   cmdClone,
   cmdPull,
   cmdFetch,
@@ -37,6 +38,8 @@ const HELP = `ego — Git 多身份管理 CLI
   keys                              列出 ~/.ssh 密钥，标出已绑定/未绑定
   repos [user]                      列出仓库绑定（可按用户过滤；已删除会标注）
   check [--prune]                   校验仓库实际身份与记录是否一致；--prune 清理失效记录
+  sync [user] [--dry-run] [--yes]   把身份的 name/email/key 变更同步到其全部绑定仓库
+                                    （改了 --email 或轮换密钥后必跑；不带 user 则同步全部身份）
   add <user> --name "名字" --email "邮箱" --key "密钥路径"   注册身份
   key-new <user> [--email 邮箱]     生成 SSH 密钥到 ~/.ssh/ 并注册
   remove <user>                    删除身份（同时清理其仓库绑定）
@@ -101,6 +104,7 @@ const BOOL_FLAGS = new Set([
   'ff-only',
   'all',
   'with-keys',
+  'dry-run',
   'help'
 ]);
 const isKnownFlag = (k) => VALUE_FLAGS.has(k) || BOOL_FLAGS.has(k);
@@ -173,6 +177,8 @@ async function main() {
       return cmdWhoami();
     case 'scan':
       return cmdScan(rest[0]);
+    case 'sync':
+      return cmdSync(rest[0], { dryRun: !!flags['dry-run'], yes });
     case 'clone':
       return cmdClone(rest[0], rest[1], rest[2], { bind: !flags['no-bind'] });
     case 'pull':

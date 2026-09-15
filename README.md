@@ -71,6 +71,7 @@ ego init work
   start <user> [remote]            一键初始化新项目（git init + 绑定 + 初始提交 + 展示 log）
   repos [user]                     列出仓库绑定（已删除的仓库会标注）
   check [--prune]                  校验仓库实际身份与记录是否一致；--prune 清理失效记录
+  sync [user] [--dry-run] [--yes]  把身份的 name/email/key 变更同步到其全部绑定仓库
   verify                           校验当前密钥绑定的 Git 账号（ssh -T）
   whoami                           快速查看当前仓库/全局身份
   scan [目录]                      批量扫描目录下各仓库的绑定归属
@@ -153,6 +154,25 @@ ego fetch work --all --prune  # 只更新远端引用（含清理已删除分支
   `https://` 由 Git 凭据管理器认证，ego 无法介入（会明确提示）；本地路径远端不需要密钥。
 - **密钥校验**：SSH 远端时若密钥文件不存在／身份未配密钥，会在**联网前**直接报错，不等 git 抛晦涩的认证失败；
   https 与本地远端用不上密钥，因此这类远端不要求身份有密钥（也不会写 `core.sshCommand`）。
+
+## 改了身份信息？记得 `ego sync`
+
+仓库里的 `user.name/email/core.sshCommand` 是**绑定那一刻的快照**；`ego add` 只改注册表，
+**不会**回头更新任何仓库（不跑 `sync` 的话，那些仓库会继续用旧邮箱提交，而且没有任何提示）：
+
+```bash
+ego add work --email new@example.com     # ① 改注册表
+ego sync work --dry-run                  # ② 先看影响面：哪些仓库会被改成什么（不落盘）
+ego sync work                            # ③ 落盘；该身份若是全局身份，同时刷新 --global 配置
+
+ego sync                                 # 不带身份：同步全部身份
+```
+
+- **密钥轮换同理**：`key-new` 重新生成密钥后跑 `ego sync <身份>`，各仓库的 `core.sshCommand` 才会指向新密钥。
+- `sync` 只写 `user.name/email`；`core.sshCommand` 仅在**该仓库按 SSH 认证**时写（https/本地远端不写，与 `ego check` 判定一致）。
+- 目录不存在／不是 git 仓库的绑定记录会被跳过并列出（就是 `ego check` 里显示为 ❌ 的那种脏记录）。
+- 同步完用 `ego check` 复核，应全绿。
+- 注意：`sync` 只影响**以后**的提交；历史提交的作者不会变（要改历史得 `git filter-repo` 重写 + 强推，风险自负）。
 
 ## 备份与迁移（换设备）
 
