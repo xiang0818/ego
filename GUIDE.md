@@ -141,8 +141,9 @@ ego remote git@github.com:owner/repo.git    # 绑定（无 origin 时 add，有�
 ## 6. 校验与一致性
 
 ```bash
-# 校验当前仓库密钥绑定的账号（ssh -T）
-ego verify           # 输出 "Hi <用户名>!" 即绑定成功
+# 校验当前仓库绑定的身份账号（用该仓库 core.sshCommand 里的密钥做 ssh -T -i）
+ego verify           # 输出 "Hi <用户名>!" 即成功，且该用户名应等于本仓库绑定身份
+                     # 非 SSH 远端（https/本地）会提示 ssh 校验不适用
 
 # 校验所有已记录仓库：记录 vs 仓库实际身份是否一致
 ego check
@@ -370,7 +371,12 @@ ego check        # 应显示 ✅ 一致 N · ⚠️ 0 · ❌ 0
 
 **Q: push 报 `Permission denied (publickey)`**
 - 确认 `ego show <user>` 里 key 路径存在，且公钥已添加到对应平台账号
-- 用 `ego verify` 校验；GitHub 提示 "Hi <用户名>!"
+- 用 `ego verify` 校验；GitHub 提示 "Hi <用户名>"，且**该用户名应与仓库绑定身份一致**
+
+**Q: `ego verify` 打印的用户名和我绑定的身份不是同一个**
+- 说明该密钥在平台上其实属于另一个账号（或密钥没被用上）。1.2.1 之前 `ego verify` 走的是裸 `ssh -T`，
+  会命中 `~/.ssh` 默认身份（通常是 `id_rsa`），从而打印别的账号：请升级后重试
+- 现在的 `verify` 会显式 `-i <仓库密钥> -o IdentitiesOnly=yes`，并打印它用的是哪把密钥，可据此核对
 
 **Q: 仓库绑错了用户**
 - 用 `ego switch <正确身份>` 换绑，不要用 `ego start`

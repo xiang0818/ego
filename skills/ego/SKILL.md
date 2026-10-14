@@ -168,12 +168,18 @@ ego remove <身份> [--yes]  # 删除身份并解除其全部仓库绑定
 ### W4 校验与一致性审计
 
 ```bash
-ego verify              # 用当前仓库密钥对 origin 所属主机做 ssh -T；
-                        # 出现 "Hi <用户名>!" 即校验成功（ssh -T 总是非 0 退出，属正常）
+ego verify              # 用【本仓库绑定的密钥】（core.sshCommand 的 -i，并加 IdentitiesOnly=yes）
+                        # 对 origin 所属主机做 ssh -T；出现 "Hi <用户名>!" 即成功
+                        # 该用户名必须等于本仓库绑定身份，否则说明密钥与平台账号不匹配
+                        # （ssh -T 总是非 0 退出，属正常；https/本地远端会提示校验不适用）
 ego check [--prune]     # 逐仓库核对记录 vs 实际身份；--prune 清理已删除仓库的失效记录
 ego scan [目录]         # 批量扫描目录下各仓库的记录/实际归属
 ego repos [身份]        # 查看绑定清单（已删除的仓库会标注）
 ```
+
+> 历史坑（已在 1.2.1 修复）：`ego verify` 曾用**裸 `ssh -T`**，既不带 `-i` 也不看 `core.sshCommand`，
+> 于是走 `~/.ssh` 默认身份顺序命中 `id_rsa`，把**别的账号**打印成"校验成功"。若用户在旧版本上看到
+> `Hi <用户名>!` 与仓库绑定身份不符，就是这个原因——升级后再校验。
 
 push 报 `Permission denied (publickey)` 时的排查顺序：
 `ego show <身份>`（密钥存在？）→ `ego verify`（账号通不通？）→ 提示用户检查平台公钥是否添加。
@@ -274,7 +280,8 @@ ego fetch work --all --prune  # 只更新远端引用并清理已删分支，不
 - 无 TTY/无人确认的自动化里一律带 `--yes`（并给明确提交信息），防交互卡死。
 - 展示给用户的公钥原样输出，别截断别改格式。
 - 修复身份问题优先用 ego 自己的命令（`switch`/`init`），别手改 `.git/config`。
-- `verify` 用 ssh -T 校验账号后再让用户 push。
+- `verify` 用 ssh -T 校验账号后再让用户 push；**核对它打印的用户名是否等于仓库绑定身份**——
+  不等于就是密钥/平台账号不匹配（别只看到 "Hi ...!" 就以为没问题）。
 
 **Don't**
 - ❌ 手改 `~/.git-tool/users.json`——一律用 `add`/`key-new`/`remove`/`sync`。

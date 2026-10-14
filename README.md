@@ -72,7 +72,7 @@ ego init work
   repos [user]                     列出仓库绑定（已删除的仓库会标注）
   check [--prune]                  校验仓库实际身份与记录是否一致；--prune 清理失效记录
   sync [user] [--dry-run] [--yes]  把身份的 name/email/key 变更同步到其全部绑定仓库
-  verify                           校验当前密钥绑定的 Git 账号（ssh -T）
+  verify                           用本仓库绑定的密钥校验平台账号（ssh -T -i <密钥>）
   whoami                           快速查看当前仓库/全局身份
   scan [目录]                      批量扫描目录下各仓库的绑定归属
 
