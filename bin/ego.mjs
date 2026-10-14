@@ -52,7 +52,7 @@ const HELP = `ego — Git 多身份管理 CLI
                                     非 git 目录会提示并引导初始化项目，--init/--yes 自动执行 git init）
   switch <user> [--init] [--yes]    同 init
   remote [url]                      查看/绑定/修改 origin
-  verify                            校验当前仓库密钥绑定的 Git 账号（ssh -T）
+  verify                            用本仓库绑定的密钥校验平台账号（ssh -T -i <密钥>）
   whoami                            快速查看当前仓库/全局身份
   status                            工作区状态 + 当前身份
   scan [目录]                       批量扫描目录下各仓库的绑定归属

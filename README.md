@@ -9,6 +9,19 @@ cd ego
 npm install -g .          # 或 npm link，安装后任意目录可用 `ego`
 ```
 
+> **注意**：对**本地目录**执行 `npm install -g .` / `npm link` 时，npm 默认建的是
+> **链接（junction/symlink）**，不是拷贝。若环境不支持跟随重解析点（部分沙箱、容器、
+> WSL/网络挂载），全局 `ego` 会整体失效（报 `Cannot find module .../node_modules/ego/bin/ego.mjs`）。
+> 这种环境下请用**拷贝式安装**：
+>
+> ```bash
+> npm install -g . --install-links     # 例如 npm 11
+> # 或打包后再装（任何 npm 版本都适用）
+> npm pack && npm install -g ./ego-*.tgz && rm ego-*.tgz
+> ```
+>
+> 代价：拷贝式是"快照"，改完源码要重新执行一次安装命令；链接式则改完即生效。
+
 ## 快速上手
 
 ```bash
