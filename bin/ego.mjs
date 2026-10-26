@@ -64,7 +64,7 @@ const HELP = `ego — Git 多身份管理 CLI
   ls-remote <user> [地址]                 验证该身份能否访问远端（零副作用）
 
 备份/恢复
-  export [--with-keys] [路径]       导出身份 + 仓库绑定清单（可选含 SSH 私钥）
+  export [--with-keys] [输出文件.json]   导出身份 + 仓库绑定清单（可选含 SSH 私钥；参数是输出文件路径，不是密钥名）
   import <备份文件> [--yes]         恢复身份/密钥，并列出仓库重绑步骤
 
 提交/推送

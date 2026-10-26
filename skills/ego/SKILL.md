@@ -187,7 +187,7 @@ push 报 `Permission denied (publickey)` 时的排查顺序：
 ### W5 备份 / 迁移（换设备）
 
 ```bash
-ego export [--with-keys] [路径]   # 默认 ~/.git-tool/export-日期.json
+ego export [--with-keys] [输出文件.json]   # 默认 ~/.git-tool/export-日期.json；参数是输出文件路径，不是密钥名
 ego import <备份文件> [--yes]      # 恢复身份/密钥，并打印每仓库的 clone + init 步骤
 ```
 
