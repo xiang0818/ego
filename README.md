@@ -1,6 +1,6 @@
 # ego — Git 多身份管理 CLI
 
-全局 Git 管理工具：多身份注册表、一键绑定仓库、构建提交推送、打 tag、SSH 账号校验。
+全局 Git 管理工具：多身份注册表、一键绑定仓库、构建提交推送、打 tag、SSH 账号校验、Git 命令透传。
 
 ## 安装（全局）
 
@@ -102,6 +102,10 @@ ego init work
   publish ["信息"] [--build] [--yes] [--force]  构建(可选)+提交+推送
   release [版本号]                  打 tag（默认读 package.json version）+ 推送
 
+Git 透传（兼容 git 命令模式）
+  git [--as <身份>] <git 命令> [参数...]   用原生 git 执行任意子命令，按 ego 身份注入
+                                    SSH 密钥与作者信息（不写 .git/config，退出码与 git 一致）
+
 备份/恢复
   export [--with-keys] [输出文件.json]   导出身份 + 仓库绑定清单（可选含 SSH 私钥；参数是输出文件路径，不是密钥名）
   import <备份文件> [--yes]        恢复身份/密钥，并列出仓库重绑步骤
@@ -167,6 +171,27 @@ ego fetch work --all --prune  # 只更新远端引用（含清理已删除分支
   `https://` 由 Git 凭据管理器认证，ego 无法介入（会明确提示）；本地路径远端不需要密钥。
 - **密钥校验**：SSH 远端时若密钥文件不存在／身份未配密钥，会在**联网前**直接报错，不等 git 抛晦涩的认证失败；
   https 与本地远端用不上密钥，因此这类远端不要求身份有密钥（也不会写 `core.sshCommand`）。
+
+## 用原生 git 命令（`ego git` 透传）
+
+任何 git 子命令都可以放在 `ego git` 后面执行，ego 会按仓库绑定身份自动注入：
+
+- **SSH 认证**：通过 `GIT_SSH_COMMAND` 使用该身份的私钥，仅本次生效，不写 `.git/config`
+- **提交作者**：通过 `GIT_AUTHOR_*` / `GIT_COMMITTER_*` 使用该身份的 name/email
+- **退出码**：原样透传 git 的退出码；stdio 直连终端，支持 `rebase -i` 等交互式命令
+
+```bash
+ego git status
+ego git log --oneline -10
+ego git commit -m "fix: xxx"
+ego git push origin main
+ego git --as work push        # 临时借用 work 身份执行，不改变仓库绑定
+```
+
+身份解析顺序：`--as` > 仓库绑定记录 > `.git/config` 匹配 > remote 所有者推断。
+`ego git` 是原生 git 透传，**不经过** `ego commit` / `publish` 的敏感文件、大文件守卫；
+需要守卫时仍用 `ego commit` / `ego publish`。HTTPS 远端由 Git 凭据管理器认证，
+ego 的 SSH 密钥不参与（会打印提示），与 `clone`/`pull`/`fetch` 的边界一致。
 
 ## 改了身份信息？记得 `ego sync`
 

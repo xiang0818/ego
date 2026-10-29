@@ -322,6 +322,32 @@ ego fetch personal --prune
   配置的远端直接 `ego pull`（不带参数）即可。
 - 不认识的 `--xxx` 参数不会被静默忽略，会当成位置参数并给出明确报错（拼错 `--ff-only` 时能立刻发现）。
 
+### 11.5 任意 git 命令：`ego git` 透传模式
+
+`ego` 自己的命令只覆盖高频场景；需要跑其它 git 子命令（`status` / `log` / `diff` /
+`rebase` / `stash` / `submodule` …）又希望沿用 ego 身份时，用 `ego git` 透传：
+
+```bash
+ego git status
+ego git log --oneline -10
+ego git commit -m "fix: xxx"
+ego git push origin main
+ego git rebase -i main
+ego git --as work push        # 临时借用 work 身份执行，不改变仓库绑定
+```
+
+它做三件事：
+
+1. **SSH 认证**：按身份解析结果设置 `GIT_SSH_COMMAND`（`ssh -i <key> -o IdentitiesOnly=yes …`），
+   **只对本次进程生效**，不写 `.git/config`、不改仓库绑定。
+2. **提交作者**：设置 `GIT_AUTHOR_NAME/EMAIL` 与 `GIT_COMMITTER_NAME/EMAIL`，
+   所以即使仓库没跑过 `ego init`，提交也会记在 ego 身份名下。
+3. **原样透传**：参数、stdio、退出码都交给 git；支持交互式命令；不经过 `ego commit` 的
+   敏感文件/大文件守卫（需要守卫时用 `ego commit` / `ego publish`）。
+
+身份解析顺序：`--as <身份>` > 仓库绑定记录 > `.git/config` 匹配 > remote 所有者推断。
+SSH 密钥只对 SSH 远端生效；https 仍由 Git 凭据管理器认证（ego 不介入）。
+
 ---
 
 ## 12. 改了身份信息后同步到各仓库（sync）

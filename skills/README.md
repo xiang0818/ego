@@ -27,6 +27,8 @@ skills/
   大文件拦截、身份漂移中止、`--yes` 非交互约定
 - 按身份取数：`ego clone` / `pull` / `fetch` 用指定账号拉取（临时借用该身份密钥，
   不改仓库绑定）；`ego ls-remote` 先探通路，零副作用
+- 任意 git 命令透传：`ego git <git 子命令>` 用原生 git 执行，按 ego 身份注入 SSH 密钥与
+  提交作者（不写 `.git/config`，退出码与 git 一致）
 - 密钥与账号校验（`ego verify` / `check` / `scan`）
 - 备份迁移（`export` / `import`）的安全注意事项
 

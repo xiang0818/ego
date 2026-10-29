@@ -25,6 +25,7 @@ import {
   cmdPush,
   cmdPublish,
   cmdRelease,
+  cmdGit,
   cmdExport,
   cmdImport
 } from '../lib/commands.js';
@@ -73,6 +74,11 @@ const HELP = `ego — Git 多身份管理 CLI
   publish ["信息"] [--build] [--yes] [--force]  构建(可选)+提交+推送
   release [版本号]                   打 tag（默认读 package.json version）+ 推送
 
+Git 透传（兼容 git 命令模式）
+  git [--as <身份>] <git 命令> [参数...]   用原生 git 执行任意子命令，按 ego 身份注入
+                                    SSH 密钥与作者信息（不写 .git/config，退出码与 git 一致）
+                                    示例: ego git status / ego git push origin main
+
 通用参数
   --build      执行 .git-tool.json 里的 build（默认不构建）
   --yes        非交互（自动生成提交信息、跳过确认；init/switch 下自动执行 git init）
@@ -89,6 +95,7 @@ const HELP = `ego — Git 多身份管理 CLI
   ego ls-remote coresz
   ego fetch work --prune
   ego publish "修复xx" --yes
+  ego git push origin main
   ego release
 `;
 
@@ -138,7 +145,13 @@ function parseArgs(args) {
 }
 
 async function main() {
-  const { flags, positional } = parseArgs(process.argv.slice(2));
+  const rawArgs = process.argv.slice(2);
+  // `ego git ...` 必须原样透传：不能走 parseArgs，否则 git 自己的 --force/-m 等
+  // 会被 ego 的通用 flag 解析吞掉
+  if (rawArgs[0] === 'git') {
+    return cmdGit(rawArgs.slice(1));
+  }
+  const { flags, positional } = parseArgs(rawArgs);
   const cmd = positional[0];
   const rest = positional.slice(1);
   const yes = !!flags.yes;

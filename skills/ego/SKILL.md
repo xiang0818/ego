@@ -1,7 +1,7 @@
 ---
 name: ego
 aliases: [ego-cli, git-identity, git-multi-identity]
-description: Use the `ego` CLI — a Git 多身份管理工具 (identity registry + per-repo identity binding + guarded commit/push/tag + SSH account verify + audit + backup/migrate) — whenever a repo task involves multiple Git identities or accounts: binding a repo to an identity (`ego init`/`switch`/`start`), committing/publishing under a specific user (`ego commit`/`publish`/`release`), checking which identity a repo uses, or verifying SSH keys. Triggers: 用户提到 ego、身份名（work/personal/用户名）、多 Git 账号、按账号归属提交/推送、git commit 要带某身份。Do NOT use for fine-grained partial staging or non-Git credential tasks.
+description: Use the `ego` CLI — a Git 多身份管理工具 (identity registry + per-repo identity binding + guarded commit/push/tag + SSH account verify + audit + backup/migrate + `ego git` 任意命令透传) — whenever a repo task involves multiple Git identities or accounts: binding a repo to an identity (`ego init`/`switch`/`start`), committing/publishing under a specific user (`ego commit`/`publish`/`release`), running any git subcommand with ego identity injection (`ego git`), checking which identity a repo uses, or verifying SSH keys. Triggers: 用户提到 ego、身份名（work/personal/用户名）、多 Git 账号、按账号归属提交/推送、git commit 要带某身份、原生 git 命令要用 ego 身份认证。Do NOT use for fine-grained partial staging or non-Git credential tasks.
 ---
 
 # ego — Git 多身份管理 Skill
@@ -27,6 +27,9 @@ description: Use the `ego` CLI — a Git 多身份管理工具 (identity registr
 - **取数（`clone`/`pull`/`fetch`/`ls-remote`）是"借用身份"**：拉取时身份只决定 SSH 用哪把私钥，
   与提交作者无关。ego 通过 `GIT_SSH_COMMAND` 临时借密钥，**不改仓库绑定、不写 `.git/config`**；
   只有 **SSH 远端**才按身份切换（https 走凭据管理器，ego 无法介入并会明确提示）。
+- **`ego git <任意 git 命令>` 是透传模式**：用原生 git 跑任意子命令，同时按 ego 身份注入
+  SSH 密钥与 `GIT_AUTHOR_*`/`GIT_COMMITTER_*`；不写 `.git/config`、不改仓库绑定，
+  退出码与 git 一致。适合 `ego` 没封装的操作（`rebase`、`stash`、`submodule` 等）。
 - 输出为中文；出错时打印 `错误: <msg>` 并以非 0 退出。
 
 **前置检查**：先确认环境里装没装 `ego users`。
@@ -235,6 +238,28 @@ ego fetch work --all --prune  # 只更新远端引用并清理已删分支，不
 - 克隆后不需要再 `ego init`（绑定已自动完成）；若目录里已有别人的身份配置，用 `ego whoami` 核对。
 - 非 SSH 远端（https/本地路径）克隆时**只写 `user.name/email`，不写 `core.sshCommand`**，属正常行为。
 
+### W7 任意 git 命令按身份执行（`ego git` 透传）
+
+需要跑 `ego` 没封装的 git 子命令，又不想手改 `.git/config` 时：
+
+```bash
+ego git status
+ego git log --oneline -10
+ego git commit -m "fix: xxx"
+ego git push origin main
+ego git --as work push        # 临时借用 work 身份（不改变仓库绑定）
+```
+
+行为与边界：
+- 身份解析：`--as <身份>` > 仓库绑定记录 > `.git/config` 匹配 > remote 所有者推断。
+- **SSH 认证**：设置 `GIT_SSH_COMMAND` 指向该身份私钥（仅本次生效，不写 `.git/config`）；
+  仅 SSH 远端有效，https 走凭据管理器。
+- **提交作者**：设置 `GIT_AUTHOR_*` / `GIT_COMMITTER_*`，未 `ego init` 的仓库也会用 ego 身份提交。
+- 参数/stdio/退出码原样透传，支持 `rebase -i` 等交互命令；
+  **不经过** `ego commit`/`publish` 的敏感文件、大文件守卫——需要守卫时用 `ego commit`。
+- `ego git` 的第一个参数就是 git 子命令；不要写成 `ego git pull origin main` 去"借身份"，
+  那仍是原生 git 语义（ego 的 `pull` 第一个参数是身份名，二者不同）。
+
 ---
 
 ## 3. 命令速查表
@@ -247,6 +272,7 @@ ego fetch work --all --prune  # 只更新远端引用并清理已删分支，不
 | 按身份取数 | `clone <u> <url> [dir]` `pull [u]` `fetch [u]` `ls-remote <u> [url]` | clone 加 `--no-bind` 可不绑定；pull 加 `--rebase`/`--ff-only`；fetch 加 `--all`/`--prune` |
 | 提交 | `commit ["msg"]` | `--build` `--yes` `--force` |
 | 提交+推送 | `publish ["msg"]` | 同上 |
+| 任意 git 命令透传 | `git [--as <u>] <git 子命令> [参数]` | 按 ego 身份注入 SSH 密钥/作者；不写 `.git/config` |
 | 推送 / 打 tag | `push` / `release [版本]` | `release` 默认读 package.json |
 | 校验/审计 | `verify` `check [--prune]` `scan [dir]` `repos [u]` | `check --prune` 需确认 |
 | 身份增删 | `add <u> --name --email --key` `key-new <u> [--email]` `remove <u>` `set-global <u>` | `remove` 默认要确认 |
@@ -302,9 +328,13 @@ ego fetch work --all --prune  # 只更新远端引用并清理已删分支，不
 ## 5. 与原生 git 的边界
 
 - 原生 git 的读操作、分支、rebase、精细暂存照常直接做；
+- 但**希望这些原生 git 命令沿用 ego 身份（尤其是 SSH 认证）时，前面加 `ego git`**：
+  `ego git rebase -i main`、`ego git stash`、`ego git submodule update --init`。
+  `ego git` 只注入本次进程的身份与密钥，不写 `.git/config`、不改仓库绑定。
 - **取数**（clone/pull/fetch）需要换身份时走 `ego clone/pull/fetch/ls-remote`；
   不需要换身份（单账号仓库）时原生 `git clone`/`git pull` 也完全可以。
 - 提交入口二选一：简单全量提交通道用 `ego commit/publish`（有守卫与记录）；
-  需要精确控制暂存内容时用原生 git（此时仍应先用 `ego whoami` 确认仓库身份正确）。
+  需要精确控制暂存内容时用原生 git（此时仍应先用 `ego whoami` 确认仓库身份正确，
+  必要时用 `ego git commit -m ...` 让本次提交沿用 ego 身份）。
 - 想让某次提交换作者而**不换绑定**？先和用户确认意图——ego 的模型是
   "仓库级身份一致"，需要临时替身提交属于原生 git `-c user.name=...` 的活，且要明确告知用户风险。
