@@ -1,7 +1,7 @@
 ---
 name: ego
 aliases: [ego-cli, git-identity, git-multi-identity]
-description: Use the `ego` CLI — a Git 多身份管理工具 (identity registry + per-repo identity binding + guarded commit/push/tag + SSH account verify + audit + backup/migrate + `ego git` 任意命令透传) — whenever a repo task involves multiple Git identities or accounts: binding a repo to an identity (`ego init`/`switch`/`start`), committing/publishing under a specific user (`ego commit`/`publish`/`release`), running any git subcommand with ego identity injection (`ego git`), checking which identity a repo uses, or verifying SSH keys. Triggers: 用户提到 ego、身份名（work/personal/用户名）、多 Git 账号、按账号归属提交/推送、git commit 要带某身份、原生 git 命令要用 ego 身份认证。Do NOT use for fine-grained partial staging or non-Git credential tasks.
+description: "Use the `ego` CLI — a Git 多身份管理工具 (identity registry + per-repo identity binding + guarded commit/push/tag + SSH account verify + audit + backup/migrate + `ego git` 任意命令透传) — whenever a repo task involves multiple Git identities or accounts: binding a repo to an identity (`ego init`/`switch`/`start`), committing/publishing under a specific user (`ego commit`/`publish`/`release`), running any git subcommand with ego identity injection (`ego git`), checking which identity a repo uses, or verifying SSH keys. Triggers: 用户提到 ego、身份名（work/personal/用户名）、多 Git 账号、按账号归属提交/推送、git commit 要带某身份、原生 git 命令要用 ego 身份认证。Do NOT use for fine-grained partial staging or non-Git credential tasks."
 ---
 
 # ego — Git 多身份管理 Skill
